@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>步道坡线规划台</title>
+<style>
+  :root {
+    --bg: #f4f6f5;
+    --panel: #ffffff;
+    --ink: #1f2a2e;
+    --muted: #6b7a80;
+    --line: #d9e0dc;
+    --brand: #2e7d52;
+    --brand-dark: #1f5c3b;
+    --ground: #a06a3b;
+    --design: #2e7d52;
+    --flat: #d9a52b;
+    --danger: #c0392b;
+    --warn-bg: #fdecea;
+    --warn-ink: #8e2f24;
+    --info-bg: #eef5ff;
+    --info-ink: #244a7a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.5;
+  }
+  header {
+    background: var(--brand-dark);
+    color: #fff;
+    padding: 18px 28px;
+  }
+  header h1 { margin: 0; font-size: 20px; font-weight: 600; }
+  header p { margin: 4px 0 0; font-size: 13px; opacity: .85; }
+  main {
+    max-width: 1100px;
+    margin: 22px auto 60px;
+    padding: 0 18px;
+    display: grid;
+    gap: 18px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px 20px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  }
+  .panel h2 {
+    margin: 0 0 12px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--brand-dark);
+  }
+  .rules {
+    font-size: 12.5px;
+    color: var(--muted);
+    margin: 0 0 14px;
+  }
+  .rules code {
+    background: #f0f3f1;
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 6px 8px;
+    text-align: center;
+  }
+  th { background: #f7f9f8; font-weight: 600; color: #3c4a44; }
+  td input[type="number"] {
+    width: 86px;
+    padding: 4px 6px;
+    border: 1px solid #c4cec9;
+    border-radius: 6px;
+    font-size: 13px;
+    text-align: center;
+  }
+  td input[type="number"]:focus { outline: 2px solid #b9d8c6; border-color: var(--brand); }
+  td input.locked { background: #f1f4f2; color: var(--muted); }
+  .pin-tag { font-size: 11px; color: var(--brand-dark); }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; align-items: center; }
+  button {
+    border: 1px solid var(--brand);
+    background: var(--brand);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 7px;
+    font-size: 13.5px;
+    cursor: pointer;
+  }
+  button:hover { background: var(--brand-dark); border-color: var(--brand-dark); }
+  button.secondary {
+    background: #fff;
+    color: var(--brand-dark);
+  }
+  button.secondary:hover { background: #eef5f0; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .hint { font-size: 12.5px; color: var(--muted); }
+  .alert {
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 13.5px;
+    margin-top: 14px;
+    display: none;
+  }
+  .alert.show { display: block; }
+  .alert.error { background: var(--warn-bg); color: var(--warn-ink); border: 1px solid #f2c3bc; }
+  .alert.info  { background: var(--info-bg); color: var(--info-ink); border: 1px solid #c4d8f2; }
+  .alert b { display: block; margin-bottom: 2px; }
+  #chartWrap { overflow-x: auto; }
+  svg { display: block; min-width: 640px; width: 100%; height: auto; }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12.5px; color: #3c4a44; margin-top: 8px; }
+  .legend span::before {
+    content: "";
+    display: inline-block;
+    width: 22px; height: 0;
+    border-top: 3px solid #999;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  .legend .lg-ground::before { border-top: 3px dashed var(--ground); }
+  .legend .lg-design::before { border-top: 3px solid var(--design); }
+  .legend .lg-flat::before { border-top: 5px solid var(--flat); }
+  .summary { display: flex; gap: 26px; flex-wrap: wrap; margin-bottom: 12px; }
+  .stat { font-size: 13px; color: var(--muted); }
+  .stat b { font-size: 18px; color: var(--brand-dark); margin-left: 6px; }
+  .badge {
+    display: inline-block;
+    font-size: 11.5px;
+    padding: 1px 8px;
+    border-radius: 999px;
+  }
+  .badge.flat { background: #fdf2d2; color: #8a6410; border: 1px solid #ecd79a; }
+  .badge.slope { background: #eef3f0; color: #51625a; }
+  .diff-up { color: #b0561f; font-weight: 600; }
+  .diff-down { color: #2c6fa6; font-weight: 600; }
+  .diff-zero { color: #8a6410; font-weight: 600; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 860px) { .two-col { grid-template-columns: 1fr; } }
+  .tables-block { display: none; }
+  .tables-block.show { display: block; }
+  .table-scroll { overflow-x: auto; }
+  .muted { color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>步道坡线规划台</h1>
+  <p>测点间距 1 m · 标高单位 cm · 自动求总调整量最小的可行坡线</p>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>① 地面测点（3～16 个）</h2>
+    <p class="rules">
+      规则：地面标高为 <code>0～200</code> 的整数厘米；方案标高同范围；
+      <b>首、尾方案标高固定等于对应地面标高</b>；相邻方案点高差
+      <code>≤ 8 cm</code>；任意连续 <code>5</code> 段中至少有 <code>1</code> 段水平段。
+      目标：各点 |方案−地面| 之和最小，并列时取方案标高序列字典序最小。
+    </p>
+    <div class="table-scroll">
+      <table id="pointTable">
+        <thead>
+          <tr><th>测点</th><th>桩号 (m)</th><th>地面标高 (cm)</th><th>备注</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="controls">
+      <button id="btnPlan" type="button">计算最优坡线</button>
+      <button id="btnAdd" class="secondary" type="button">＋ 添加测点</button>
+      <button id="btnRemove" class="secondary" type="button">－ 删除末点</button>
+      <button id="btnExample" class="secondary" type="button">载入示例</button>
+      <span class="hint" id="countHint"></span>
+    </div>
+    <div class="alert" id="alertBox"></div>
+  </section>
+
+  <section class="panel" id="chartPanel" style="display:none">
+    <h2>② 坡线叠画图</h2>
+    <div id="chartWrap">
+      <svg id="chart" viewBox="0 0 1000 420" role="img" aria-label="地面线与方案坡线叠画图"></svg>
+    </div>
+    <div class="legend">
+      <span class="lg-ground">地面线（实测）</span>
+      <span class="lg-design">方案坡线</span>
+      <span class="lg-flat">水平段（高差 0）</span>
+    </div>
+  </section>
+
+  <section class="panel tables-block" id="resultPanel">
+    <h2>③ 计算结果</h2>
+    <div class="summary">
+      <div class="stat">总调整量（Σ|方案−地面|，cm）<b id="sumAdjust">0</b></div>
+      <div class="stat">水平段数量<b id="flatCount">0</b></div>
+      <div class="stat">段数<b id="segCount">0</b></div>
+    </div>
+    <div class="two-col">
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>段号</th><th>区间 (m)</th><th>方案起→止 (cm)</th><th>高差 (cm)</th><th>类型</th></tr>
+          </thead>
+          <tbody id="segBody"></tbody>
+          <tfoot>
+            <tr><th colspan="5" class="muted">水平段：高差为 0；高差正值为升段，负值为降段</th></tr>
+          </tfoot>
+        </table>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>测点</th><th>地面 (cm)</th><th>方案 (cm)</th><th>|调整| (cm)</th></tr>
+          </thead>
+          <tbody id="pointBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+"use strict";
+
+const MIN_POINTS = 3, MAX_POINTS = 16, MIN_ELEV = 0, MAX_ELEV = 200;
+const EXAMPLE = [12, 14, 9, 6, 10, 16, 20, 18, 12, 8];
+
+const tbody = document.querySelector("#pointTable tbody");
+const countHint = document.getElementById("countHint");
+const alertBox = document.getElementById("alertBox");
+const btnAdd = document.getElementById("btnAdd");
+const btnRemove = document.getElementById("btnRemove");
+
+let pointCount = 6;
+
+function renderInputs(values) {
+  tbody.innerHTML = "";
+  for (let i = 0; i < pointCount; i++) {
+    const tr = document.createElement("tr");
+    tr.dataset.idx = i;
+    const locked = (i === 0 || i === pointCount - 1) ? "locked" : "";
+    const tag = i === 0 ? '<span class="pin-tag">起点·方案=地面</span>'
+              : i === pointCount - 1 ? '<span class="pin-tag">终点·方案=地面</span>' : "";
+    const val = values ? values[i] : "";
+    tr.innerHTML =
+      `<td>P${i + 1}</td>` +
+      `<td>${i}</td>` +
+      `<td><input type="number" min="${MIN_ELEV}" max="${MAX_ELEV}" step="1" ` +
+      `value="${val}" ${locked} aria-label="P${i + 1} 地面标高"></td>` +
+      `<td>${tag}</td>`;
+    tbody.appendChild(tr);
+  }
+  updateHint();
+}
+
+function updateHint() {
+  countHint.textContent = `当前 ${pointCount} 个测点（允许 ${MIN_POINTS}～${MAX_POINTS}）`;
+  btnAdd.disabled = pointCount >= MAX_POINTS;
+  btnRemove.disabled = pointCount <= MIN_POINTS;
+}
+
+function rebuild(keepValues, newCount) {
+  const values = keepValues ? collectRaw().values : null;
+  pointCount = newCount;
+  renderInputs(values);
+}
+
+function collectRaw() {
+  const inputs = tbody.querySelectorAll("input");
+  const values = [];
+  const errors = [];
+  inputs.forEach((inp, i) => {
+    const raw = inp.value.trim();
+    if (raw === "") { errors.push(`第 ${i + 1} 个测点未填写地面标高。`); values.push(null); return; }
+    if (!/^[+-]?\d+$/.test(raw)) { errors.push(`第 ${i + 1} 个测点“${raw}”不是整数。`); values.push(null); return; }
+    const v = Number(raw);
+    if (v < MIN_ELEV || v > MAX_ELEV) {
+      errors.push(`第 ${i + 1} 个测点标高 ${v} 超出 ${MIN_ELEV}～${MAX_ELEV} cm。`);
+      values.push(null); return;
+    }
+    values.push(v);
+  });
+  return { values, errors };
+}
+
+function showAlert(kind, title, detail) {
+  alertBox.className = "alert show " + kind;
+  alertBox.innerHTML = `<b>${title}</b>${detail ? escapeHtml(detail) : ""}`;
+}
+function clearAlert() { alertBox.className = "alert"; alertBox.innerHTML = ""; }
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+btnAdd.addEventListener("click", () => {
+  if (pointCount < MAX_POINTS) rebuild(true, pointCount + 1);
+});
+btnRemove.addEventListener("click", () => {
+  if (pointCount > MIN_POINTS) rebuild(true, pointCount - 1);
+});
+document.getElementById("btnExample").addEventListener("click", () => {
+  pointCount = EXAMPLE.length;
+  renderInputs(EXAMPLE);
+  clearAlert();
+});
+document.getElementById("btnPlan").addEventListener("click", runPlan);
+
+async function runPlan() {
+  clearAlert();
+  const { values, errors } = collectRaw();
+  if (errors.length) {
+    showAlert("error", "输入不合法", errors.join("<br>"));
+    return;
+  }
+  let resp;
+  try {
+    resp = await fetch("/api/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ground: values })
+    });
+  } catch (e) {
+    showAlert("error", "网络错误", "无法连接规划服务：" + e.message);
+    return;
+  }
+  let data;
+  try { data = await resp.json(); } catch { data = null; }
+  if (!resp.ok || !data || data.ok === false) {
+    const title = resp.status === 422 ? "不存在可行方案" : "输入不合法";
+    const detail = data && data.error ? data.error : "服务返回异常。";
+    showAlert("error", title, detail);
+    document.getElementById("chartPanel").style.display = "none";
+    document.getElementById("resultPanel").classList.remove("show");
+    return;
+  }
+  renderResult(values, data);
+}
+
+/* ---------------- 结果渲染 ---------------- */
+
+function renderResult(ground, data) {
+  document.getElementById("chartPanel").style.display = "";
+  document.getElementById("resultPanel").classList.add("show");
+  document.getElementById("sumAdjust").textContent = data.totalAdjustment;
+  document.getElementById("flatCount").textContent = data.horizontalCount;
+  document.getElementById("segCount").textContent = data.segments.length;
+  drawChart(ground, data);
+  renderSegmentTable(data);
+  renderPointTable(data);
+  showAlert("info", "规划完成",
+    `总调整量 ${data.totalAdjustment} cm，水平段 ${data.horizontalCount} 段；` +
+    `所有相邻高差均 ≤ 8 cm，任意连续 5 段均含水平段。`);
+}
+
+function renderSegmentTable(data) {
+  const body = document.getElementById("segBody");
+  body.innerHTML = "";
+  data.segments.forEach(s => {
+    const tr = document.createElement("tr");
+    const cls = s.diff > 0 ? "diff-up" : s.diff < 0 ? "diff-down" : "diff-zero";
+    const sign = s.diff > 0 ? "+" : "";
+    const badge = s.horizontal
+      ? '<span class="badge flat">水平段</span>'
+      : '<span class="badge slope">坡段</span>';
+    tr.innerHTML =
+      `<td>${s.index}</td>` +
+      `<td>${s.index - 1} → ${s.index}</td>` +
+      `<td>${s.from} → ${s.to}</td>` +
+      `<td class="${cls}">${sign}${s.diff}</td>` +
+      `<td>${badge}</td>`;
+    body.appendChild(tr);
+  });
+}
+
+function renderPointTable(data) {
+  const body = document.getElementById("pointBody");
+  body.innerHTML = "";
+  data.points.forEach(p => {
+    const tr = document.createElement("tr");
+    tr.innerHTML =
+      `<td>P${p.index}</td><td>${p.ground}</td><td>${p.design}</td><td>${p.adjustment}</td>`;
+    body.appendChild(tr);
+  });
+}
+
+/* ---------------- SVG 绘图 ---------------- */
+
+function drawChart(ground, data) {
+  const svg = document.getElementById("chart");
+  const design = data.points.map(p => p.design);
+  const horizontal = data.segments.map(s => s.horizontal);
+
+  const W = 1000, H = 420;
+  const M = { top: 30, right: 30, bottom: 56, left: 64 };
+  const iw = W - M.left - M.right;
+  const ih = H - M.top - M.bottom;
+  const n = ground.length;
+
+  let lo = Math.min(...ground, ...design);
+  let hi = Math.max(...ground, ...design);
+  if (lo === hi) { lo -= 4; hi += 4; }
+  const pad = Math.max(2, Math.ceil((hi - lo) * 0.12));
+  lo = Math.max(0, lo - pad);
+  hi = Math.min(200, hi + pad);
+  if (hi - lo < 8) { hi = Math.min(200, lo + 8); }
+
+  const x = i => M.left + (n === 1 ? iw / 2 : i * iw / (n - 1));
+  const y = v => M.top + (hi - v) / (hi - lo) * ih;
+
+  const ns = "http://www.w3.org/2000/svg";
+  const el = (name, attrs) => {
+    const node = document.createElementNS(ns, name);
+    for (const k in attrs) node.setAttribute(k, attrs[k]);
+    return node;
+  };
+  svg.innerHTML = "";
+
+  // 横向网格 + y 轴刻度
+  const ticks = 6;
+  for (let t = 0; t <= ticks; t++) {
+    const v = lo + (hi - lo) * t / ticks;
+    const yy = y(v);
+    svg.appendChild(el("line", {
+      x1: M.left, y1: yy, x2: W - M.right, y2: yy,
+      stroke: "#e6ebe8", "stroke-width": 1
+    }));
+    const txt = el("text", {
+      x: M.left - 10, y: yy + 4, "text-anchor": "end",
+      "font-size": 11, fill: "#7a8781"
+    });
+    txt.textContent = v.toFixed(0);
+    svg.appendChild(txt);
+  }
+
+  // x 轴 / y 轴
+  svg.appendChild(el("line", { x1: M.left, y1: M.top, x2: M.left, y2: H - M.bottom, stroke: "#9aa8a1" }));
+  svg.appendChild(el("line", { x1: M.left, y1: H - M.bottom, x2: W - M.right, y2: H - M.bottom, stroke: "#9aa8a1" }));
+
+  // 轴标题
+  const yTitle = el("text", { x: 16, y: M.top + ih / 2, "font-size": 12, fill: "#51625a", transform: `rotate(-90 16 ${M.top + ih / 2})`, "text-anchor": "middle" });
+  yTitle.textContent = "标高 (cm)";
+  svg.appendChild(yTitle);
+  const xTitle = el("text", { x: M.left + iw / 2, y: H - 12, "font-size": 12, fill: "#51625a", "text-anchor": "middle" });
+  xTitle.textContent = "桩号 (m) · 测点间距 1 m";
+  svg.appendChild(xTitle);
+
+  // x 刻度
+  for (let i = 0; i < n; i++) {
+    const xx = x(i);
+    svg.appendChild(el("line", { x1: xx, y1: H - M.bottom, x2: xx, y2: H - M.bottom + 5, stroke: "#9aa8a1" }));
+    const txt = el("text", { x: xx, y: H - M.bottom + 20, "text-anchor": "middle", "font-size": 11, fill: "#7a8781" });
+    txt.textContent = i;
+    svg.appendChild(txt);
+  }
+
+  const linePath = vals => vals.map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+
+  // 地面线（虚线）
+  svg.appendChild(el("path", {
+    d: linePath(ground), fill: "none",
+    stroke: "#a06a3b", "stroke-width": 2.5,
+    "stroke-dasharray": "7 5", "stroke-linejoin": "round"
+  }));
+  // 方案线
+  svg.appendChild(el("path", {
+    d: linePath(design), fill: "none",
+    stroke: "#2e7d52", "stroke-width": 3, "stroke-linejoin": "round"
+  }));
+  // 水平段加粗描金
+  data.segments.forEach((s, j) => {
+    if (!s.horizontal) return;
+    svg.appendChild(el("line", {
+      x1: x(j), y1: y(design[j]), x2: x(j + 1), y2: y(design[j + 1]),
+      stroke: "#d9a52b", "stroke-width": 6, "stroke-linecap": "round", opacity: 0.85
+    }));
+  });
+
+  // 测点标记：地面方块、方案圆点
+  for (let i = 0; i < n; i++) {
+    svg.appendChild(el("rect", {
+      x: x(i) - 3.5, y: y(ground[i]) - 3.5, width: 7, height: 7,
+      fill: "#fff", stroke: "#a06a3b", "stroke-width": 1.8
+    }));
+    svg.appendChild(el("circle", {
+      cx: x(i), cy: y(design[i]), r: 3.6, fill: "#2e7d52"
+    }));
+    // 方案标高数字
+    const lbl = el("text", {
+      x: x(i), y: y(design[i]) - 9, "text-anchor": "middle",
+      "font-size": 10.5, fill: "#1f5c3b", "font-weight": 600
+    });
+    lbl.textContent = design[i];
+    svg.appendChild(lbl);
+    // 调整量虚线（方案与地面不一致时）
+    if (design[i] !== ground[i]) {
+      svg.appendChild(el("line", {
+        x1: x(i), y1: y(ground[i]), x2: x(i), y2: y(design[i]),
+        stroke: "#b9c4bf", "stroke-width": 1, "stroke-dasharray": "2 3"
+      }));
+    }
+  }
+}
+
+/* 初始化 */
+renderInputs();
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+services:
+  trail-planner:
+    build: .
+    image: trail-slope-planner:latest
+    container_name: trail-slope-planner
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
